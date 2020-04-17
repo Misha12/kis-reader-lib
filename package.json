@@ -1,0 +1,25 @@
+{
+  "name": "kis-reader-lib",
+  "version": "1.0.0",
+  "description": "Knihovna pro integraci čtečky karet s KIS aplikacemi.",
+  "author": {
+    "name": "Michal Kotoun",
+    "url": "https://www.su.fit.vutbr.cz/gogs/xkotou04"
+  },
+  "repository": {
+    "url": "https://www.su.fit.vutbr.cz/gogs/Technicky/kis-reader-lib",
+    "type": "git"
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "clean": "tsc --build --clean",
+    "onefile": "ncc build src/lib.ts -o dist -C -m -s --no-source-map-register"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^8.0.14",
+    "typescript": "^3.2.2",
+    "@types/websocket": "0.0.38",
+    "@zeit/ncc": "0.22.1"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "ES2020",
+    "lib": [
+      "es6",
+      "ES2020",
+      "ES2020.Promise",
+      "ES2020.String"
+    ],
+    "sourceMap": true,
+    "removeComments": true,
+    "outDir": "dist",
+    "rootDir": "./src",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "moduleResolution": "node"
+  },
+  "exclude": [
+    "node_modules"
+  ]
+}
