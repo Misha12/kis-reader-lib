@@ -1,6 +1,29 @@
 import { PacketError } from './errors'
-import { INVALID_FORMAT } from './errorCodes'
+import { INVALID_FORMAT, EMPTY_RESPONSE } from './errorCodes'
 
+/*
+    Packet format for reader protocol version 1
+    1 byte lead-mark: 0x6E
+    1 byte message type: 0x0-0x6 App->Ctecka, 0x8-0xC Ctecka->App
+    32 byte data
+    1 byte end-mark: 0xE6
+*/
+
+/*
+struct ProtokolPacket {
+    uint8_t messageType;
+    uint8_t checkByteOne;
+    uint8_t data[32];
+    uint8_t checkByteTwo;
+};
+
+struct IdData {
+    uint8_t uid_length;
+    uint8_t uid[7];
+    uint8_t padding[8];
+    uint8_t card0[16];
+};
+*/
 
 // APP->CTECKA
 export enum ProtokolA2C {
@@ -67,22 +90,49 @@ export const checkPacket = (packet: Uint8Array) => {
 }
 
 // todo function that parse packet into type and 32B data
-export const parsePacket = (packet: Uint8Array) => {
+export const parsePacket = (packet: Uint8Array): {type: ProtokolC2A, data: Uint8Array } => {
+    checkPacket(packet);
 
+    let typeNum = packet[1];
+    let data = packet.slice(2, 32);
+
+    return {type: typeNum, data};
 }
 
-// export const decodePacket = (packet: Uint8Array): string => {
-//     checkPacket(packet)
-//     const packetData = packet.slice(2, 34)
-//     let data = ''
-//     packetData.forEach((val) => data += String.fromCharCode(val))
-//     return data
-// }
+export const decodeRfidData = (data: Uint8Array): {cardIdBase64:string, signatureBase64:string} => {
+    let binary = '';
+    let isNonZero = false;
+
+    isNonZero = false;
+    let idLen = data[0];
+    for (let i = 1; i < (1 + idLen); i++) {
+        if (!isNonZero && data[i] > 0)
+            isNonZero = true;
+        binary += String.fromCharCode(data[i]);
+    }
+    if (!isNonZero) {
+        throw new PacketError('Card ID is null', EMPTY_RESPONSE);
+    }
+    let cardIdBase64 = window.btoa(binary);
+
+    isNonZero = false;
+    for (let i = 16; i <= 31; i++) {
+        if (!isNonZero && data[i] > 0)
+            isNonZero = true;
+        binary += String.fromCharCode(data[i]);
+    }
+    if (!isNonZero) {
+        throw new PacketError('Card signature is null', EMPTY_RESPONSE);
+    }
+    let signatureBase64 = window.btoa(binary);
+
+    return {cardIdBase64, signatureBase64};
+}
 
 export const createPingPacket = (numCode : number): Uint8Array => {
     const binaryCode = new Uint32Array(1);
     binaryCode[0] = numCode;
-    const msg = Uint8Array.from(createPacket(ProtokolA2C.Ping));
+    const msg = createPacket(ProtokolA2C.Ping);
     msg[2] = binaryCode.buffer[0];
     msg[3] = binaryCode.buffer[1];
     msg[4] = binaryCode.buffer[2];
@@ -91,12 +141,22 @@ export const createPingPacket = (numCode : number): Uint8Array => {
 }
 
 // this accepts only the 32B long data part of the 35B packet
-export const decodePong = (data: Uint8Array): number => {
+export const decodePongData = (data: Uint8Array): number => {
     const binaryCode = new Uint32Array(1);
     binaryCode.buffer[0] = data[0];
     binaryCode.buffer[1] = data[1];
     binaryCode.buffer[2] = data[2];
-    binaryCode.buffer[3] = data[3]
+    binaryCode.buffer[3] = data[3];
     const numCode: number = binaryCode[0];
     return numCode;
+}
+
+// takes two lines of text of at most 16 (ASCII) characters (ignores the rest)
+export const createDisplayPacket = (lineOne: string, lineTwo: string): Uint8Array => {
+    const msg = createPacket(ProtokolA2C.PrintTextDual);
+    for(let i = 0; i < 16 && lineOne.length; i++)
+        msg[2 + i] = lineOne.charCodeAt(i); // this will emmit modulo-256 for too big codes
+    for(let i = 0; i < 16 && lineTwo.length; i++)
+        msg[2 + 16 + i] = lineTwo.charCodeAt(i); // this will emmit modulo-256 for too big codes
+    return msg;
 }
