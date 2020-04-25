@@ -6,7 +6,8 @@
       "es6",
       "ES2020",
       "ES2020.Promise",
-      "ES2020.String"
+      "ES2020.String",
+      "DOM"
     ],
     "sourceMap": true,
     "removeComments": true,
