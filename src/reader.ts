@@ -28,18 +28,19 @@ export default class KisReaderClient {
 
     state: ReaderState;
 
-    connectedEvent: TypedEvent<KisReaderClient> = new TypedEvent<KisReaderClient>();
-    reconnectingEvent: TypedEvent<KisReaderClient> = new TypedEvent<KisReaderClient>();
-    disconnectedEvent: TypedEvent<KisReaderClient> = new TypedEvent<KisReaderClient>();
-    cardReadEvent: TypedEvent<{client: KisReaderClient, cardData: string}> = new TypedEvent<{client: KisReaderClient, cardData: string}>();
-    errorEvent: TypedEvent<{client: KisReaderClient, error: ReaderError}> = new TypedEvent<{client: KisReaderClient, error: ReaderError}>();
+    // explicitní types left out (they are deduced && its tooo long)
+    connectedEvent = new TypedEvent<KisReaderClient>();
+    reconnectingEvent = new TypedEvent<KisReaderClient>();
+    disconnectedEvent = new TypedEvent<KisReaderClient>();
+    cardReadEvent = new TypedEvent<{client: KisReaderClient, cardData: string}>();
+    errorEvent = new TypedEvent<{client: KisReaderClient, error: ReaderError}>();
 
-    pingEnabled;
-    pingInterval = 2000; //ms
-    pingFails; // connect()
-    pingFailsLimit = 1;
-    reconnectAttempts; // connect()
-    reconnectLimit = 1;
+    pingEnabled: boolean;
+    pingInterval: number = 2000; // ms
+    pingFails: number; // connect()
+    pingFailsLimit: number = 1;
+    reconnectAttempts: number ; // connect()
+    reconnectLimit: number  = 1;
     constructor(
         url: string
     ) {
@@ -219,7 +220,7 @@ export default class KisReaderClient {
     pingCode: number;
     pingIntervalId: any;
     // init to true, like there was pre-first ping that was successfu
-    pingReceived = true;
+    pingReceived: boolean = true;
     private startPinging() {
         // init ping value to some random uint32 number
         const uint32Max = (2 ^ 32 - 1);
