@@ -70,7 +70,7 @@ export default class KisReaderClient {
             this.handleBinaryMessages(data);
         };
         this.onErrorHandler = (ev) => {
-            let error = new ReaderError("Socket error: " + ev, errorCodes.READER_ERROR);
+            let error = new SocketError(ev, errorCodes.SOCKET_ERROR);
             this.logError(error);
             this.state = ReaderState.ST_ERROR;
             this.errorEvent.emit({
@@ -137,7 +137,7 @@ export default class KisReaderClient {
         if (!(this.socket && this.socket.readyState == WebSocket.OPEN)) {
             this.state = ReaderState.ST_DISCONNECTED; //todo - does this make sense? maybe check wthere it is not in error state and let it there then
             let error = new SocketError("Socket is not ready", errorCodes.READER_NOT_CONNECTED);
-            this.logError(error);
+            this.logError(error); // TODO: logError only supports ReaderError now
             throw error;
         }
     }
@@ -161,7 +161,7 @@ export default class KisReaderClient {
     }
 
     modeSingleReadAuth() {
-        throw new SocketError("Encrypted cards operations are not supported", errorCodes.NOT_SUPPORTED_OPERATION);
+        throw new ReaderError("Encrypted cards operations are not supported", errorCodes.NOT_SUPPORTED_OPERATION);
     }
 
     setDisplay2x16(content: string) {
@@ -184,7 +184,7 @@ export default class KisReaderClient {
             }
             case ProtokolC2A.AutoId: {
                 if (this.state !== ReaderState.ST_AUTO_READ) {
-                    this.logError(new SocketError("Unexpected message in current state.", errorCodes.INVALID_RESPONSE));
+                    this.logError(new ReaderError("Unexpected message in current state.", errorCodes.INVALID_RESPONSE));
                     return;
                 }
 
@@ -194,7 +194,7 @@ export default class KisReaderClient {
             }
             case ProtokolC2A.SingleId: {
                 if (this.state !== ReaderState.ST_SINGLE_READ) {
-                    this.logError(new SocketError("Unexpected message in current state.", errorCodes.INVALID_RESPONSE));
+                    this.logError(new ReaderError("Unexpected message in current state.", errorCodes.INVALID_RESPONSE));
                     return;
                 }
                 this.state = ReaderState.ST_IDLE; // adjust the state
@@ -206,12 +206,12 @@ export default class KisReaderClient {
             case ProtokolC2A.SingleIdSendKey:
             case ProtokolC2A.VerificationCode:
                 this.state = ReaderState.ST_ERROR;
-                this.logError(new SocketError("Encrypted cards operations are not supported", errorCodes.NOT_SUPPORTED_OPERATION));
+                this.logError(new ReaderError("Encrypted cards operations are not supported", errorCodes.NOT_SUPPORTED_OPERATION));
                 this.onConnectionProblem();
                 break;
             default:
                 this.state = ReaderState.ST_ERROR;
-                this.logError(new SocketError("Unsupported message", errorCodes.INVALID_RESPONSE));
+                this.logError(new ReaderError("Unsupported message", errorCodes.INVALID_RESPONSE));
                 this.onConnectionProblem();
                 break;
         }
@@ -231,7 +231,7 @@ export default class KisReaderClient {
         {
             //if we did not receive response to last ping
             if(!this.pingReceived) {
-                this.logError(new SocketError('Ping not received in limit ' + this.pingFailsLimit, errorCodes.READER_ERROR));
+                this.logError(new ReaderError('Ping not received in limit ' + this.pingFailsLimit, errorCodes.READER_ERROR));
                 this.pingFailed();
             }
 
@@ -258,7 +258,7 @@ export default class KisReaderClient {
         {
             // log something, maybe even do error?
             let codeDiff = this.pingCode - rcvdCode; // difference between last sent code and the one just received
-            this.logError(new SocketError('Ping data is not matching with pong, the ping is N iterations old, N: ' + codeDiff, errorCodes.READER_ERROR));
+            this.logError(new ReaderError('Ping data is not matching with pong, the ping is N iterations old, N: ' + codeDiff, errorCodes.READER_ERROR));
             this.pingFailed();
         }
     }
