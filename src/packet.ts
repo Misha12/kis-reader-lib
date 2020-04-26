@@ -57,11 +57,18 @@ export enum ProtokolC2A {
     VerificationCode = 0x0C,
 }
 
-export const createPacket = (type: ProtokolA2C | ProtokolC2A): Uint8Array => {
+export const createPacket = (type: ProtokolA2C | ProtokolC2A, data?: ArrayBuffer): Uint8Array => {
     const packet = new Uint8Array(35)
     packet[0] = type
     packet[1] = 0x6E
     packet[34] = 0xE6
+    if (data) {
+        if (!(data instanceof ArrayBuffer))
+            throw new Error("data must be ArrayBuffer");
+        if (data.byteLength > 32)
+            throw new Error("data must be <=32 bytes");
+        packet.set(new Uint8Array(data), 2);
+    }
     return packet
 }
 
@@ -93,8 +100,8 @@ export const checkPacket = (packet: Uint8Array) => {
 export const parsePacket = (packet: Uint8Array): {type: ProtokolC2A, data: Uint8Array } => {
     checkPacket(packet);
 
-    let typeNum = packet[1];
-    let data = packet.slice(2, 32);
+    let typeNum = packet[0];
+    let data = packet.slice(2, 2 + 32); //copy the data, so it is aligned for multi-byte operations
 
     return {type: typeNum, data};
 }
@@ -130,24 +137,20 @@ export const decodeRfidData = (data: Uint8Array): {cardIdBase64:string, signatur
 }
 
 export const createPingPacket = (numCode : number): Uint8Array => {
-    const binaryCode = new Uint32Array(1);
-    binaryCode[0] = numCode;
-    const msg = createPacket(ProtokolA2C.Ping);
-    msg[2] = binaryCode.buffer[0];
-    msg[3] = binaryCode.buffer[1];
-    msg[4] = binaryCode.buffer[2];
-    msg[5] = binaryCode.buffer[3];
-    return  msg;
+    const uint32 = new Uint32Array(1);
+    uint32[0] = numCode;
+    let msg = createPacket(ProtokolA2C.Ping, uint32.buffer);
+    return msg;
 }
 
 // this accepts only the 32B long data part of the 35B packet
 export const decodePongData = (data: Uint8Array): number => {
-    const binaryCode = new Uint32Array(1);
-    binaryCode.buffer[0] = data[0];
-    binaryCode.buffer[1] = data[1];
-    binaryCode.buffer[2] = data[2];
-    binaryCode.buffer[3] = data[3];
-    const numCode: number = binaryCode[0];
+    let uint32: Uint32Array;
+    if (data.byteOffset % Uint32Array.BYTES_PER_ELEMENT == 0)
+        uint32 = new Uint32Array(data.buffer, data.byteOffset, Uint32Array.BYTES_PER_ELEMENT);
+    else // copy the data
+        uint32 = new Uint32Array(data.slice(data.byteOffset, data.byteOffset + Uint32Array.BYTES_PER_ELEMENT));
+    const numCode: number = uint32[0];
     return numCode;
 }
 

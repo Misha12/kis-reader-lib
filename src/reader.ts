@@ -10,14 +10,21 @@ const SingleReadMsg = createPacket(ProtokolA2C.SingleRead)
 
 const enum ReaderState {
     ST_DISCONNECTED,
+    ST_RECONNECTING,
     ST_IDLE,
     ST_AUTO_READ,
     ST_SINGLE_READ,
-    ST_RECONNECTING,
-    ST_ERROR,
+    ST_UNKNOWN,
 }
 
-export default class KisReaderClient {
+// if run on NodeJS use websocket/ws
+declare var require: (id: string) => any;
+if (typeof WebSocket === 'undefined')
+{
+    WebSocket = require('ws');
+}
+
+export class KisReaderClient {
     socket: WebSocket | null;
     url: string;
     request: Uint8Array;
@@ -33,21 +40,35 @@ export default class KisReaderClient {
     reconnectingEvent = new TypedEvent<KisReaderClient>();
     disconnectedEvent = new TypedEvent<KisReaderClient>();
     cardReadEvent = new TypedEvent<{client: KisReaderClient, cardData: string}>();
-    errorEvent = new TypedEvent<{client: KisReaderClient, error: ReaderError}>();
+    errorEvent = new TypedEvent<{client: KisReaderClient, error: ReaderError | SocketError}>();
 
     pingEnabled: boolean;
-    pingInterval: number = 2000; // ms
+    pingInterval: number; // ms, must be greater or equal to pingTimeout
+    pingTimeout: number; // ms
     pingFails: number; // connect()
-    pingFailsLimit: number = 1;
+    pingFailsLimit: number;
     reconnectAttempts: number ; // connect()
-    reconnectLimit: number  = 1;
+    reconnectDelay: number; // ms
+    reconnectLimit: number;
+    lastKnownState: ReaderState;
     constructor(
         url: string
     ) {
         this.url = url;
         this.state = ReaderState.ST_DISCONNECTED;
-        this.pingEnabled = true;
+        this.lastKnownState = ReaderState.ST_UNKNOWN;
+        // defaults
+        this.pingEnabled = true; // this would detect if the TCP connection was terminated without RST/us noticing
+        // set the ping interval to 5s, timeout to 0.5s and 5 late pings will trigger reconnect
+        this.pingInterval = 5000;
+        this.pingTimeout = 500;
+        this.pingFailsLimit = 5;
+        // reconnect after 1s, make 3 attempts before disconnecting
+        this.reconnectDelay = 1000;
+        this.reconnectLimit = 3;
+        // defaults, these are reset on every successful connection
         this.pingFails = 0;
+        this.reconnectAttempts = 0;
     }
 
     // TODO: vylepšit logování
@@ -55,7 +76,7 @@ export default class KisReaderClient {
         console.log(msg);
     }
 
-    private logError(error: ReaderError) {
+    private logError(error: ReaderError | SocketError) {
         console.log(error);
         this.errorEvent.emit({client:this, error});
     }
@@ -72,17 +93,16 @@ export default class KisReaderClient {
         this.onErrorHandler = (ev) => {
             let error = new SocketError(ev, errorCodes.SOCKET_ERROR);
             this.logError(error);
-            this.state = ReaderState.ST_ERROR;
-            this.errorEvent.emit({
-                client: this,
-                error: error
-            });
             this.onConnectionProblem();
         };
         this.onCloseHandler = (ev) => {
             this.logWarn(`Socket closed: code:${ev.code}, reason:${ev.reason}, wasClean:${ev.wasClean}`);
-            this.state = ReaderState.ST_DISCONNECTED;
-            this.disconnectedEvent.emit(this);
+            if ( // if we are not aware of being closed state already
+                this.state !== ReaderState.ST_DISCONNECTED &&
+                this.state !== ReaderState.ST_RECONNECTING )
+            { // then let the onConnectionProblem handle it
+                this.onConnectionProblem();
+            }
         };
 
         this.socket = new WebSocket(this.url);
@@ -95,17 +115,49 @@ export default class KisReaderClient {
             this.reconnectAttempts = 0;
             if (this.pingEnabled)
                 this.startPinging();
+
+            /**/ if(this.lastKnownState == ReaderState.ST_AUTO_READ)
+                this.modeAutoRead();
+            else if(this.lastKnownState == ReaderState.ST_SINGLE_READ)
+                this.modeSingleRead();
+
             this.connectedEvent.emit(this);
         };
         this.socket.binaryType = 'arraybuffer';
     }
 
+    // disconects socket and most of internal state (not event delegates)
     disconnect() {
-        this.socket.close(null, "disconnect requested");
+        this.stopPinging();
+        this.state = ReaderState.ST_DISCONNECTED;
+        this.lastKnownState = ReaderState.ST_UNKNOWN;
+        this.pingFails = 0;
+        this.reconnectAttempts = 0;
+        if (this.socket)
+            this.socket.close(1000, "disconnect requested");
+        this.socket = null;
     }
 
     private onConnectionProblem() {
-        this.socket.close(null, "connection problems detected");
+        if (this.state != ReaderState.ST_RECONNECTING)
+                this.lastKnownState = this.state;
+
+        this.stopPinging();
+        console.log("Entered onConnectionProblem()\n", {
+            pingFails: this.pingFails,
+            reconnectAttempts: this.reconnectAttempts,
+            state: this.state,
+            socketState: this.socket.readyState
+        });
+        if (this.socket && (
+            this.socket.readyState === WebSocket.CONNECTING ||
+            this.socket.readyState === WebSocket.OPEN
+            ))
+        {
+            // we need to set ST_RECONNECTING or ST_DISCONNECTED here, in case the socket.onClose is called
+            this.state = ReaderState.ST_RECONNECTING;
+            this.socket.close(4000, "connection problems detected");
+        }
         this.socket = null;
         this.reconnectAttempts++;
         if (this.reconnectAttempts > this.reconnectLimit) {
@@ -116,7 +168,7 @@ export default class KisReaderClient {
         // else
         this.state = ReaderState.ST_RECONNECTING;
         this.reconnectingEvent.emit(this);
-        this.connect();
+        setTimeout(() => this.connect(), this.reconnectDelay);
     }
 
     connectPromise(): Promise<void> {
@@ -133,11 +185,13 @@ export default class KisReaderClient {
         });
     }
 
+    // this method is an exception to "do log, do NOT throw if you are in inner/private method" rule here
+    // !it might throw an exception!
     private checkSocketReady() {
         if (!(this.socket && this.socket.readyState == WebSocket.OPEN)) {
             this.state = ReaderState.ST_DISCONNECTED; // TODO: - does this make sense? maybe check wthere it is not in error state and let it there then
-            let error = new SocketError("Socket is not ready", errorCodes.READER_NOT_CONNECTED);
-            this.logError(error); // TODO: logError only supports ReaderError now
+            let error = new SocketError("WebSocket is not ready", errorCodes.READER_NOT_CONNECTED);
+            this.logError(error);
             throw error;
         }
     }
@@ -205,12 +259,12 @@ export default class KisReaderClient {
             }
             case ProtokolC2A.SingleIdSendKey:
             case ProtokolC2A.VerificationCode:
-                this.state = ReaderState.ST_ERROR;
+                this.state = ReaderState.ST_UNKNOWN;
                 this.logError(new ReaderError("Encrypted cards operations are not supported", errorCodes.NOT_SUPPORTED_OPERATION));
                 this.onConnectionProblem();
                 break;
             default:
-                this.state = ReaderState.ST_ERROR;
+                this.state = ReaderState.ST_UNKNOWN;
                 this.logError(new ReaderError("Unsupported message", errorCodes.INVALID_RESPONSE));
                 this.onConnectionProblem();
                 break;
@@ -218,31 +272,48 @@ export default class KisReaderClient {
     }
 
     pingCode: number;
+    pingPeriodIdx: number;
     pingIntervalId: any;
     // init to true, like there was pre-first ping that was successfu
     pingReceived: boolean = true;
+    readonly uint32Max = (Math.pow(2, 32) - 1);
     private startPinging() {
         // init ping value to some random uint32 number
-        const uint32Max = (2 ^ 32 - 1);
-        this.pingCode = Math.floor((Math.random() * uint32Max));
+        this.pingCode = Math.floor((Math.random() * this.uint32Max));
+
+        // the run-interval is given by the timeout
+        // if the pingInterval is larger then pingTimeout
+        // we just skip some cycles
+        let interval = this.pingTimeout;
+        let periodsPerPing = Math.ceil(this.pingInterval / this.pingTimeout);
+        this.pingPeriodIdx = 0;
 
         // start regular pings
         this.pingIntervalId = setInterval(() =>
         {
+            // skip if this is not cycle idx == 0, always increment
+            let active = this.pingPeriodIdx == 0;
+            this.pingPeriodIdx = (this.pingPeriodIdx + 1) % periodsPerPing;
+            if (!active)
+                return;
+
             // if we did not receive response to last ping
             if(!this.pingReceived) {
-                this.logError(new ReaderError('Ping not received in limit ' + this.pingFailsLimit, errorCodes.READER_ERROR));
+                this.logError(new ReaderError('Ping not received in time limit ' + this.pingInterval, errorCodes.READER_ERROR));
                 this.pingFailed();
             }
 
             // reset the flag and send new ping
             this.pingReceived = false;
             this.sendPing();
-        }, this.pingInterval) // TODO: move the ping-rate to class config
+        }, interval) // TODO: move the ping-rate to class config
+    }
+    private stopPinging() {
+        clearInterval(this.pingIntervalId);
+        this.pingIntervalId = null;
     }
     private sendPing() {
-        const uint32Max = (2 ^ 32 - 1);
-        this.pingCode = (this.pingCode + 1 % uint32Max);
+        this.pingCode = (this.pingCode + 1) % this.uint32Max;
         const pingMsg = createPingPacket(this.pingCode);
         this.checkSocketReady()
         this.socket.send(pingMsg)
@@ -252,14 +323,14 @@ export default class KisReaderClient {
         const rcvdCode = decodePongData(data);
         if (this.pingCode == rcvdCode)
         {
+            // accept the pong
             this.pingReceived = true;
         }
         else
         {
-            // log something, maybe even do error?
+            // do not accept the pong and log error
             let codeDiff = this.pingCode - rcvdCode; // difference between last sent code and the one just received
             this.logError(new ReaderError('Ping data is not matching with pong, the ping is N iterations old, N: ' + codeDiff, errorCodes.READER_ERROR));
-            this.pingFailed();
         }
     }
     private pingFailed() {
@@ -275,15 +346,20 @@ export default class KisReaderClient {
     // }
 }
 
-export const readOneCard = (readerUri: string, onData: (data: string) => void, onError: (err: any) => void) => {
+export const readOneCard = (readerUri: string, onData: (data: string) => void, onError: (err: any) => void) : ((any) => void) => {
     if (!(readerUri.startsWith("ws:// ") || readerUri.startsWith("wss:// ")))
         readerUri = "wss:// " + readerUri;
     let client = new KisReaderClient(readerUri);
-    client.errorEvent.once(onError); // maybe just the error message?
+    client.disconnectedEvent.once(onError);
     client.connectedEvent.once(reader => reader.modeSingleRead());
     client.cardReadEvent.once(ev => {
+        client.disconnectedEvent.offOnce(onError);
         client.disconnect();
         onData(ev.cardData);
     })
     client.connect();
+    return () => {
+        client.disconnectedEvent.offOnce(onError);
+        client.disconnect();
+    }
 };
