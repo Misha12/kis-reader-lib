@@ -50,7 +50,7 @@ export default class KisReaderClient {
         this.pingFails = 0;
     }
 
-    // todo vylepšit logování
+    // TODO: vylepšit logování
     private logWarn(msg: any) {
         console.log(msg);
     }
@@ -64,7 +64,7 @@ export default class KisReaderClient {
         if (this.socket)
             throw new ReaderError("Already connected or connecting", errorCodes.READER_ALREADY_CONNECTED);
 
-        // todo move to class body maybe/probably?
+        // TODO: move to class body maybe/probably?
         this.onMsgHandler = (ev) => {
             let data:ArrayBuffer = ev.data;
             this.handleBinaryMessages(data);
@@ -135,7 +135,7 @@ export default class KisReaderClient {
 
     private checkSocketReady() {
         if (!(this.socket && this.socket.readyState == WebSocket.OPEN)) {
-            this.state = ReaderState.ST_DISCONNECTED; //todo - does this make sense? maybe check wthere it is not in error state and let it there then
+            this.state = ReaderState.ST_DISCONNECTED; // TODO: - does this make sense? maybe check wthere it is not in error state and let it there then
             let error = new SocketError("Socket is not ready", errorCodes.READER_NOT_CONNECTED);
             this.logError(error); // TODO: logError only supports ReaderError now
             throw error;
@@ -170,7 +170,7 @@ export default class KisReaderClient {
         let lineOne = lines[0] ?? '';
         let lineTwo = lines[1] ?? '';
         if (lineOne.length > 16 || lineTwo.length > 16)
-            throw new ReaderError("Lines are >16 chars", errorCodes.INVALID_FORMAT); //todo maybe better error or different errorCode
+            throw new ReaderError("Lines are >16 chars", errorCodes.INVALID_FORMAT); // TODO: maybe better error or different errorCode
         let packet = createDisplayPacket(lineOne, lineTwo);
         this.socket.send(packet);
     }
@@ -229,7 +229,7 @@ export default class KisReaderClient {
         // start regular pings
         this.pingIntervalId = setInterval(() =>
         {
-            //if we did not receive response to last ping
+            // if we did not receive response to last ping
             if(!this.pingReceived) {
                 this.logError(new ReaderError('Ping not received in limit ' + this.pingFailsLimit, errorCodes.READER_ERROR));
                 this.pingFailed();
@@ -238,7 +238,7 @@ export default class KisReaderClient {
             // reset the flag and send new ping
             this.pingReceived = false;
             this.sendPing();
-        }, this.pingInterval) // todo move the ping-rate to class config
+        }, this.pingInterval) // TODO: move the ping-rate to class config
     }
     private sendPing() {
         const uint32Max = (2 ^ 32 - 1);
@@ -264,7 +264,7 @@ export default class KisReaderClient {
     }
     private pingFailed() {
         this.pingFails++;
-        //TODO do handle this somehow
+        // TODO: do handle this somehow
         if (this.pingFails > this.pingFailsLimit) {
             this.onConnectionProblem();
         }
@@ -276,10 +276,10 @@ export default class KisReaderClient {
 }
 
 export const readOneCard = (readerUri: string, onData: (data: string) => void, onError: (err: any) => void) => {
-    if (!(readerUri.startsWith("ws://") || readerUri.startsWith("wss://")))
-        readerUri = "wss://" + readerUri;
+    if (!(readerUri.startsWith("ws:// ") || readerUri.startsWith("wss:// ")))
+        readerUri = "wss:// " + readerUri;
     let client = new KisReaderClient(readerUri);
-    client.errorEvent.once(onError); //maybe just the error message?
+    client.errorEvent.once(onError); // maybe just the error message?
     client.connectedEvent.once(reader => reader.modeSingleRead());
     client.cardReadEvent.once(ev => {
         client.disconnect();
