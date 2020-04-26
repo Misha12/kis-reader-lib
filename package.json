@@ -13,11 +13,15 @@
   "scripts": {
     "build": "tsc --build",
     "clean": "tsc --build --clean",
-    "onefile": "ncc build src/lib.ts -o dist -C -m -s --no-source-map-register"
+    "onefile": "ncc build src/lib.ts -o dist/onefile/ -C -m -s --no-source-map-register",
+    "brow-onefile": "tsc --build && browserify dist/lib.js -o dist/tests/bundle-lib.js",
+    "brow-test01": "tsc --build && browserify dist/tests/test1.js -o dist/tests/bundle-test1.js"
   },
   "dependencies": {},
   "devDependencies": {
     "typescript": "^3.2.2",
-    "@zeit/ncc": "0.22.1"
+    "@zeit/ncc": "0.22.1",
+    "ws": "7.2.3",
+    "browserify": "^16.5.1"
   }
 }
