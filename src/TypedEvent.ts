@@ -1,3 +1,7 @@
+// based on
+// https://basarat.gitbook.io/typescript/main-1/typed-event
+// https://gist.github.com/basarat/46936dec14ad985bee24f54f3977cb2d
+
 export interface Listener<T> {
   (event: T): any;
 }
@@ -9,7 +13,7 @@ export interface Disposable {
 /** passes through events as they happen. You will not get events from before you start listening */
 export class TypedEvent<T> {
   private listeners: Listener<T>[] = [];
-  private listenersOncer: Listener<T>[] = [];
+  private listenersOnce: Listener<T>[] = [];
 
   on = (listener: Listener<T>): Disposable => {
     this.listeners.push(listener);
@@ -19,7 +23,7 @@ export class TypedEvent<T> {
   }
 
   once = (listener: Listener<T>): void => {
-    this.listenersOncer.push(listener);
+    this.listenersOnce.push(listener);
   }
 
   off = (listener: Listener<T>) => {
@@ -28,8 +32,8 @@ export class TypedEvent<T> {
   }
 
   offOnce = (listener: Listener<T>) => {
-    var callbackIndex = this.listenersOncer.indexOf(listener);
-    if (callbackIndex > -1) this.listenersOncer.splice(callbackIndex, 1);
+    var callbackIndex = this.listenersOnce.indexOf(listener);
+    if (callbackIndex > -1) this.listenersOnce.splice(callbackIndex, 1);
   }
 
   emit = (event: T) => {
@@ -37,14 +41,18 @@ export class TypedEvent<T> {
     this.listeners.forEach((listener) => listener(event));
 
     /** Clear the `once` queue */
-    if (this.listenersOncer.length > 0) {
-      const toCall = this.listenersOncer;
-      this.listenersOncer = [];
+    if (this.listenersOnce.length > 0) {
+      const toCall = this.listenersOnce;
+      this.listenersOnce = [];
       toCall.forEach((listener) => listener(event));
     }
   }
 
   pipe = (te: TypedEvent<T>): Disposable => {
     return this.on((e) => te.emit(e));
+  }
+
+  count = () => {
+    return this.listeners.length + this.listenersOnce.length;
   }
 }
