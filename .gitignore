@@ -65,3 +65,4 @@ typings/
 *.js
 *.js.map
 
+package-lock.json
