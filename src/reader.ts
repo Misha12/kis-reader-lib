@@ -2,20 +2,13 @@ import * as errorCodes from './errorCodes'
 import { ProtokolA2C, ProtokolC2A, createPacket, createPingPacket, decodePongData, parsePacket, decodeRfidData, createDisplayPacket } from './packet'
 import { SocketError, ReaderError } from './errors'
 import { TypedEvent } from "./TypedEvent";
+import { IKisReaderClient, ReaderState } from './ireader';
 
 const IdleMsg = createPacket(ProtokolA2C.Idle)
 const AutoReadBeginMsg = createPacket(ProtokolA2C.AutoReadBegin)
 const SingleReadMsg = createPacket(ProtokolA2C.SingleRead)
 
 
-const enum ReaderState {
-    ST_DISCONNECTED,
-    ST_RECONNECTING,
-    ST_IDLE,
-    ST_AUTO_READ,
-    ST_SINGLE_READ,
-    ST_UNKNOWN,
-}
 
 // if run on NodeJS use websocket/ws
 declare var require: (id: string) => any;
@@ -23,24 +16,23 @@ if (typeof WebSocket === 'undefined')
 {
     WebSocket = require('ws');
 }
-
-export class KisReaderClient {
+export class KisReaderClient implements IKisReaderClient {
     socket: WebSocket | null;
     url: string;
-    request: Uint8Array;
 
+    // TODO: tohle tu být asi už nemusí
     onMsgHandler: (ev: MessageEvent) => any;
     onErrorHandler: (ev: Event) => any;
     onCloseHandler: (ev: CloseEvent) => any;
 
     state: ReaderState;
 
-    // explicitní types left out (they are deduced && its tooo long)
-    connectedEvent = new TypedEvent<KisReaderClient>();
-    reconnectingEvent = new TypedEvent<KisReaderClient>();
-    disconnectedEvent = new TypedEvent<KisReaderClient>();
-    cardReadEvent = new TypedEvent<{client: KisReaderClient, cardData: string}>();
-    errorEvent = new TypedEvent<{client: KisReaderClient, error: ReaderError | SocketError}>();
+    // explicits types left out (they are deduced && its tooo long)
+    connectedEvent = new TypedEvent<IKisReaderClient>();
+    reconnectingEvent = new TypedEvent<IKisReaderClient>();
+    disconnectedEvent = new TypedEvent<IKisReaderClient>();
+    cardReadEvent = new TypedEvent<{client: IKisReaderClient, cardData: string}>();
+    errorEvent = new TypedEvent<{client: IKisReaderClient, error: ReaderError | SocketError}>();
 
     pingEnabled: boolean;
     pingInterval: number; // ms, must be greater or equal to pingTimeout
@@ -55,6 +47,7 @@ export class KisReaderClient {
         url: string
     ) {
         this.url = url;
+        this.socket = null;
         this.state = ReaderState.ST_DISCONNECTED;
         this.lastKnownState = ReaderState.ST_UNKNOWN;
         // defaults
@@ -80,6 +73,8 @@ export class KisReaderClient {
         console.log(error);
         this.errorEvent.emit({client:this, error});
     }
+
+    getState() { return this.state; }
 
     connect() {
         if (this.socket)
@@ -218,7 +213,12 @@ export class KisReaderClient {
         throw new ReaderError("Encrypted cards operations are not supported", errorCodes.NOT_SUPPORTED_OPERATION);
     }
 
-    setDisplay2x16(content: string) {
+    displayClearTimeoutId: any;
+    // clearTimeoutMs <= 0 means no display clearing
+    setDisplay2x16(content: string, clearTimeoutMs: number) {
+        // we are re-drawing the display, so cancel any pending display clearing
+        clearTimeout(this.displayClearTimeoutId);
+
         this.checkSocketReady();
         let lines = content.split("\n").map(s=>s.trim());
         let lineOne = lines[0] ?? '';
@@ -227,6 +227,12 @@ export class KisReaderClient {
             throw new ReaderError("Lines are >16 chars", errorCodes.INVALID_FORMAT); // TODO: maybe better error or different errorCode
         let packet = createDisplayPacket(lineOne, lineTwo);
         this.socket.send(packet);
+
+        // if the clearing of dispaly is requested
+        if (clearTimeoutMs > 0)
+            this.displayClearTimeoutId = setTimeout(
+                () => this.setDisplay2x16("", 0),
+                clearTimeoutMs);
     }
 
     private handleBinaryMessages(msg: ArrayBuffer) {
@@ -345,21 +351,3 @@ export class KisReaderClient {
     //     return this.socket.readyState;
     // }
 }
-
-export const readOneCard = (readerUri: string, onData: (data: string) => void, onError: (err: any) => void) : ((any) => void) => {
-    if (!(readerUri.startsWith("ws:// ") || readerUri.startsWith("wss:// ")))
-        readerUri = "wss:// " + readerUri;
-    let client = new KisReaderClient(readerUri);
-    client.disconnectedEvent.once(onError);
-    client.connectedEvent.once(reader => reader.modeSingleRead());
-    client.cardReadEvent.once(ev => {
-        client.disconnectedEvent.offOnce(onError);
-        client.disconnect();
-        onData(ev.cardData);
-    })
-    client.connect();
-    return () => {
-        client.disconnectedEvent.offOnce(onError);
-        client.disconnect();
-    }
-};
