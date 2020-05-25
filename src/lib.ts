@@ -27,6 +27,9 @@ export const readOneCard = (readerUri: string, onData: (data: string) => void, o
 // for testing the availability of the reader - will likely fail on alredy-connected reader
 // takes URI, onResult callbacks, returns nothing
 export const testReader = (readerUri: string, onResult: (success: boolean) => void) : void => {
+    if (!(readerUri.startsWith("ws://") || readerUri.startsWith("wss://")))
+        readerUri = "wss://" + readerUri;
+
     let client = new KisReaderClient(readerUri);
     client.connectedEvent.once(() => onResult(true));
     client.connectedEvent.once(() => client.disconnect());
