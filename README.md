@@ -10,11 +10,24 @@ Knihovna pro integraci čtečky karet s KIS aplikacemi.
 npm install
 ```
 
-### Běžný překlad
+### Překlad do ES6 modulů
+
+vyžaduje linux/msys/wsl pro spuštění fix-es6-imports.sh
+
+výstup v distES6/
 
 ```sh
 npm run build
 ```
+
+### Překlad do ES6 single file globálního objektu KISReaderLib
+
+výstup v dist/lib.js
+
+```sh
+npm run brow-onefile
+```
+
 
 ### Vymazání souborů
 
