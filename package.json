@@ -2,6 +2,10 @@
   "name": "kis-reader-lib",
   "version": "1.0.0",
   "description": "Knihovna pro integraci čtečky karet s KIS aplikacemi.",
+  "main": "distES6/lib.js",
+  "types": "distES6/lib.d.ts",
+  "files": ["distES6/*.js", "distES6/*.d.ts"],
+  "type": "module",
   "author": {
     "name": "Michal Kotoun",
     "url": "https://www.su.fit.vutbr.cz/gogs/xkotou04"
@@ -13,8 +17,8 @@
   "scripts": {
     "build": "tsc -b && sh fix-es6-imports.sh",
     "clean": "tsc -b --clean",
-    "ncc-onefile": "ncc build src/lib.ts -o distES6/ncc-onefile/ -C -m -s --no-source-map-register",
-    "brow-onefile": "tsc -b commonjs.tsconfig.json && browserify dist/lib.js -s KISReaderLib -o dist/tests/bundle-lib.js",
+    "ncc-onefile": "ncc build src/lib.ts -o distNode/bundle/ -C -m -s --no-source-map-register",
+    "brow-onefile": "tsc -b commonjs.tsconfig.json && browserify dist/lib.js -s KISReaderLib -o dist/bundle/bundle-lib.js",
     "brow-test01":  "tsc -b commonjs.tsconfig.json && browserify dist/tests/test1.js -o dist/tests/bundle-test1.js",
     "brow-clean": "tsc -b commonjs.tsconfig.json --clean"
   },

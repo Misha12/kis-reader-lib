@@ -7,7 +7,7 @@ export interface Listener<T> {
 }
 
 export interface Disposable {
-  dispose();
+  dispose(): void;
 }
 
 /** passes through events as they happen. You will not get events from before you start listening */

@@ -10,6 +10,6 @@ client.cardReadEvent.on(ev => {
 });
 client.connect();
 
-declare var gclient;
+declare var gclient: KisReaderClient;
 if (typeof gclient !== 'undefined')
     gclient = client;

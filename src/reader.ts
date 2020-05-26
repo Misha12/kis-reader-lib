@@ -86,7 +86,7 @@ export class KisReaderClient implements IKisReaderClient {
             this.handleBinaryMessages(data);
         };
         this.onErrorHandler = (ev) => {
-            let error = new SocketError(ev, errorCodes.SOCKET_ERROR);
+            let error = new SocketError(String(ev), errorCodes.SOCKET_ERROR);
             this.logError(error);
             this.onConnectionProblem();
         };
@@ -167,7 +167,7 @@ export class KisReaderClient implements IKisReaderClient {
     }
 
     connectPromise(): Promise<void> {
-        return new Promise<void>((resolve: () => void, reject: (any) => void) => {
+        return new Promise<void>((resolve: () => void, reject: (error: any) => void) => {
             if (!this.socket) {
                 let onErr = ev => reject(ev.error);
                 this.errorEvent.once(onErr);

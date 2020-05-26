@@ -1,8 +1,13 @@
 {
   "compilerOptions": {
     "target": "ES6",
+    "declaration": true,
     "sourceMap": true,
     "removeComments": true,
+    "strict": true,
+    "strictNullChecks": false,
+    "noImplicitAny": false,
+    "newLine": "lf",
     "outDir": "distES6",
     "rootDir": "src"
   }

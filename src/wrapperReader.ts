@@ -7,7 +7,7 @@ import { ReaderError, SocketError } from "./errors";
 export class WrapperReader implements IKisReaderClient {
     private client: KisReaderClient;
     private exclusiveMode: boolean;
-    private state: ReaderState;
+    private state: ReaderState = ReaderState.ST_UNKNOWN;
     constructor(reader: KisReaderClient, exclusiveMode: boolean = false) {
         this.client = reader;
         this.exclusiveMode = exclusiveMode;
@@ -45,7 +45,7 @@ export class WrapperReader implements IKisReaderClient {
         }
     }
 
-    exclusiveOldEvent = null;
+    private exclusiveOldEvent: TypedEvent<{client: IKisReaderClient, cardData: string}>|null = null;
     exclusiveRestore = () => {
         if (this.exclusiveOldEvent)
             this.client.cardReadEvent = this.exclusiveOldEvent;
