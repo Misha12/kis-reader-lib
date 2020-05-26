@@ -107,31 +107,37 @@ export const parsePacket = (packet: Uint8Array): {type: ProtokolC2A, data: Uint8
 }
 
 export const decodeRfidData = (data: Uint8Array): {cardIdBase64:string, signatureBase64:string} => {
-    let binary = '';
-    let isNonZero = false;
-
-    isNonZero = false;
-    let idLen = data[0];
-    for (let i = 1; i < (1 + idLen); i++) {
-        if (!isNonZero && data[i] > 0)
-            isNonZero = true;
-        binary += String.fromCharCode(data[i]);
+    let cardIdBase64: string;
+    let signatureBase64: string;
+    
+    {
+        let binary = '';
+        let isNonZero = false;
+        let idLen = data[0];
+        for (let i = 1; i < (1 + idLen); i++) {
+            if (!isNonZero && data[i] > 0)
+                isNonZero = true;
+            binary += String.fromCharCode(data[i]);
+        }
+        if (!isNonZero) {
+            throw new PacketError('Card ID is null', EMPTY_RESPONSE);
+        }
+        cardIdBase64 = window.btoa(binary);
     }
-    if (!isNonZero) {
-        throw new PacketError('Card ID is null', EMPTY_RESPONSE);
+    
+    {
+        let binary = '';
+        let isNonZero = false;
+        for (let i = 16; i <= 31; i++) {
+            if (!isNonZero && data[i] > 0)
+                isNonZero = true;
+            binary += String.fromCharCode(data[i]);
+        }
+        if (!isNonZero) {
+            throw new PacketError('Card signature is null', EMPTY_RESPONSE);
+        }
+        signatureBase64 = window.btoa(binary);
     }
-    let cardIdBase64 = window.btoa(binary);
-
-    isNonZero = false;
-    for (let i = 16; i <= 31; i++) {
-        if (!isNonZero && data[i] > 0)
-            isNonZero = true;
-        binary += String.fromCharCode(data[i]);
-    }
-    if (!isNonZero) {
-        throw new PacketError('Card signature is null', EMPTY_RESPONSE);
-    }
-    let signatureBase64 = window.btoa(binary);
 
     return {cardIdBase64, signatureBase64};
 }
