@@ -3,6 +3,7 @@ import { KisReaderClient } from "./Client";
 export { KisReaderClient } from "./Client";
 export { KisReaderWrapperClient } from "./WrapperClient";
 export { KisReaderSimpleClient } from "./SimpleClient";
+export { ReaderState } from "./IClient";
 
 // takes URI, onData, onError, onConnect(optional) callbacks, returns disconnect lambda
 export const readOneCard = (readerUri: string, onData: (data: string) => void, onError: (err: any) => void, onConnect?: () => void) : (() => void) => {

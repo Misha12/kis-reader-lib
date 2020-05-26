@@ -76,6 +76,13 @@ export class KisReaderClient implements IKisReaderClient {
 
     getState() { return this.state; }
 
+    isReady() { 
+        return (
+            this.state == ReaderState.ST_IDLE ||
+            this.state == ReaderState.ST_SINGLE_READ || 
+            this.state == ReaderState.ST_AUTO_READ);
+    }
+
     connect() {
         if (this.socket)
             throw new ReaderError("Already connected or connecting", errorCodes.READER_ALREADY_CONNECTED);

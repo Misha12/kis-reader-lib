@@ -1,7 +1,7 @@
 import { TypedEvent } from "./TypedEvent";
 import { ReaderError, SocketError } from "./errors";
 
-export const enum ReaderState {
+export enum ReaderState {
     ST_DISCONNECTED,
     ST_RECONNECTING,
     ST_IDLE,
@@ -21,6 +21,7 @@ export interface IKisReaderClient {
     setDisplay2x16(content: string, clearTimeoutMs: number): void;
 
     getState(): ReaderState;
+    isReady(): boolean;
 
     connectedEvent: TypedEvent<IKisReaderClient>;
     reconnectingEvent: TypedEvent<IKisReaderClient>;

@@ -60,15 +60,20 @@ export class KisReaderWrapperClient implements IKisReaderClient {
     }
     
     modeIdle(): void {
+        if (this.state == ReaderState.ST_IDLE)
+            return; // no work needed
+
         this.exclusiveRestore();
         this.client.cardReadEvent.off(this.fireCardEventListener);
         this.client.cardReadEvent.offOnce(this.fireCardOnceEventListener);
+        if (!this.isReady())
+            throw new Error("The reader is in bad state, state: " + ReaderState[this.state]);
         this.state = ReaderState.ST_IDLE;
     }
     modeAutoRead(): void {
         // restore to neutral state first
-        if (this.state != ReaderState.ST_IDLE)
-            this.modeIdle();
+        this.modeIdle();
+
         if (this.exclusiveMode)
         {
             // "move" the old delegate
@@ -81,8 +86,8 @@ export class KisReaderWrapperClient implements IKisReaderClient {
     }
     modeSingleRead(): void {
         // restore to neutral state first
-        if (this.state != ReaderState.ST_IDLE)
-            this.modeIdle();
+        this.modeIdle();
+
         if (this.exclusiveMode)
         {
             // "move" the old delegate
@@ -98,8 +103,15 @@ export class KisReaderWrapperClient implements IKisReaderClient {
     setDisplay2x16(content: string, clearTimeoutMs: number): void {
         this.client.setDisplay2x16(content, clearTimeoutMs);
     }
-    getState(): ReaderState {
-        return this.state;
+    getState(): ReaderState {   
+        return this.state;  
+    }
+
+    isReady(): boolean { 
+        return (
+            this.state == ReaderState.ST_IDLE ||
+            this.state == ReaderState.ST_SINGLE_READ || 
+            this.state == ReaderState.ST_AUTO_READ);
     }
 
     // this as a this-bound listener
