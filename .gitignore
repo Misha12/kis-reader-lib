@@ -63,4 +63,6 @@ typings/
 
 package-lock.json
 
-dist*/
+dist*/**
+!distES6/*.js
+!distES6/*.d.ts

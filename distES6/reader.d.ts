@@ -1,0 +1,57 @@
+import { SocketError, ReaderError } from './errors';
+import { TypedEvent } from "./TypedEvent";
+import { IKisReaderClient, ReaderState } from './ireader';
+export declare class KisReaderClient implements IKisReaderClient {
+    socket: WebSocket | null;
+    url: string;
+    onMsgHandler: (ev: MessageEvent) => any;
+    onErrorHandler: (ev: Event) => any;
+    onCloseHandler: (ev: CloseEvent) => any;
+    state: ReaderState;
+    connectedEvent: TypedEvent<IKisReaderClient>;
+    reconnectingEvent: TypedEvent<IKisReaderClient>;
+    disconnectedEvent: TypedEvent<IKisReaderClient>;
+    cardReadEvent: TypedEvent<{
+        client: IKisReaderClient;
+        cardData: string;
+    }>;
+    errorEvent: TypedEvent<{
+        client: IKisReaderClient;
+        error: ReaderError | SocketError;
+    }>;
+    pingEnabled: boolean;
+    pingInterval: number;
+    pingTimeout: number;
+    pingFails: number;
+    pingFailsLimit: number;
+    reconnectAttempts: number;
+    reconnectDelay: number;
+    reconnectLimit: number;
+    lastKnownState: ReaderState;
+    constructor(url: string);
+    private logWarn;
+    private logError;
+    getState(): ReaderState;
+    connect(): void;
+    disconnect(): void;
+    private onConnectionProblem;
+    connectPromise(): Promise<void>;
+    private checkSocketReady;
+    modeIdle(): void;
+    modeAutoRead(): void;
+    modeSingleRead(): void;
+    modeSingleReadAuth(): void;
+    displayClearTimeoutId: any;
+    setDisplay2x16(content: string, clearTimeoutMs: number): void;
+    private handleBinaryMessages;
+    pingCode: number;
+    pingPeriodIdx: number;
+    pingIntervalId: any;
+    pingReceived: boolean;
+    readonly uint32Max: number;
+    private startPinging;
+    private stopPinging;
+    private sendPing;
+    private handlePong;
+    private pingFailed;
+}
