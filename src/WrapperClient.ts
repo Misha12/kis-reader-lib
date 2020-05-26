@@ -1,10 +1,10 @@
-import { IKisReaderClient, ReaderState } from "./ireader";
-import { KisReaderClient } from "./reader";
+import { IKisReaderClient, ReaderState } from "./IClient";
+import { KisReaderClient } from "./Client";
 import { TypedEvent } from "./TypedEvent";
 import { ReaderError, SocketError } from "./errors";
 
 
-export class WrapperReader implements IKisReaderClient {
+export class KisReaderWrapperClient implements IKisReaderClient {
     private client: KisReaderClient;
     private exclusiveMode: boolean;
     private state: ReaderState = ReaderState.ST_UNKNOWN;

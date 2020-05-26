@@ -1,4 +1,4 @@
-import { KisReaderClient } from "../reader";
+import { KisReaderClient } from "../Client";
 
 let client = new KisReaderClient("wss://localhost");
 client.connectedEvent.once(() => {

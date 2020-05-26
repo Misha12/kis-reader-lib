@@ -2,7 +2,7 @@ import * as errorCodes from './errorCodes'
 import { ProtokolA2C, ProtokolC2A, createPacket, createPingPacket, decodePongData, parsePacket, decodeRfidData, createDisplayPacket } from './packet'
 import { SocketError, ReaderError } from './errors'
 import { TypedEvent } from "./TypedEvent";
-import { IKisReaderClient, ReaderState } from './ireader';
+import { IKisReaderClient, ReaderState } from './IClient';
 
 const IdleMsg = createPacket(ProtokolA2C.Idle)
 const AutoReadBeginMsg = createPacket(ProtokolA2C.AutoReadBegin)

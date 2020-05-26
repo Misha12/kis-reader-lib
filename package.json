@@ -19,7 +19,7 @@
 	},
 	"scripts": {
 		"build": "tsc -b && sh fix-es6-imports.sh",
-		"clean": "tsc -b --clean",
+		"clean": "rm -r distES6 dist distNode",
 		"ncc-onefile": "ncc build src/lib.ts -o distNode/bundle/ -C -m -s --no-source-map-register",
 		"brow-onefile": "tsc -b commonjs.tsconfig.json && browserify dist/lib.js -s KISReaderLib -o dist/bundle/bundle-lib.js",
 		"brow-test01": "tsc -b commonjs.tsconfig.json && browserify dist/tests/test1.js -o dist/tests/bundle-test1.js",
