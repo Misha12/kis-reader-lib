@@ -1,5 +1,5 @@
 import { TypedEvent } from "./TypedEvent.js";
-export class WrapperReader {
+export class KisReaderWrapperClient {
     constructor(reader, exclusiveMode = false) {
         this.state = 5;
         this.exclusiveOldEvent = null;
@@ -85,4 +85,4 @@ export class WrapperReader {
         return this.state;
     }
 }
-//# sourceMappingURL=wrapperReader.js.map
+//# sourceMappingURL=WrapperClient.js.map

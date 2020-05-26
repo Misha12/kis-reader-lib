@@ -1,6 +1,7 @@
-import { KisReaderClient } from "./reader.js";
-export { KisReaderClient } from "./reader.js";
-export { WrapperReader } from "./wrapperReader.js";
+import { KisReaderClient } from "./Client.js";
+export { KisReaderClient } from "./Client.js";
+export { KisReaderWrapperClient } from "./WrapperClient.js";
+export { KisReaderSimpleClient } from "./SimpleClient.js";
 export const readOneCard = (readerUri, onData, onError, onConnect) => {
     if (!(readerUri.startsWith("ws://") || readerUri.startsWith("wss://")))
         readerUri = "wss://" + readerUri;

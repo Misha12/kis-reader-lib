@@ -1,6 +1,6 @@
 import { SocketError, ReaderError } from './errors';
 import { TypedEvent } from "./TypedEvent";
-import { IKisReaderClient, ReaderState } from './ireader';
+import { IKisReaderClient, ReaderState } from './IClient';
 export declare class KisReaderClient implements IKisReaderClient {
     socket: WebSocket | null;
     url: string;

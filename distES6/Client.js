@@ -248,4 +248,4 @@ export class KisReaderClient {
         }
     }
 }
-//# sourceMappingURL=reader.js.map
+//# sourceMappingURL=Client.js.map
