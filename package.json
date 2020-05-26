@@ -1,32 +1,34 @@
 {
-  "name": "kis-reader-lib",
-  "version": "1.0.0",
-  "description": "Knihovna pro integraci čtečky karet s KIS aplikacemi.",
-  "main": "distES6/lib.js",
-  "types": "distES6/lib.d.ts",
-  "files": ["distES6/*.js", "distES6/*.d.ts"],
-  "type": "module",
-  "author": {
-    "name": "Michal Kotoun",
-    "url": "https://www.su.fit.vutbr.cz/gogs/xkotou04"
-  },
-  "repository": {
-    "url": "https://www.su.fit.vutbr.cz/gogs/Technicky/kis-reader-lib",
-    "type": "git"
-  },
-  "scripts": {
-    "build": "tsc -b && sh fix-es6-imports.sh",
-    "clean": "tsc -b --clean",
-    "ncc-onefile": "ncc build src/lib.ts -o distNode/bundle/ -C -m -s --no-source-map-register",
-    "brow-onefile": "tsc -b commonjs.tsconfig.json && browserify dist/lib.js -s KISReaderLib -o dist/bundle/bundle-lib.js",
-    "brow-test01":  "tsc -b commonjs.tsconfig.json && browserify dist/tests/test1.js -o dist/tests/bundle-test1.js",
-    "brow-clean": "tsc -b commonjs.tsconfig.json --clean"
-  },
-  "dependencies": {},
-  "devDependencies": {
-    "typescript": "^3.2.2",
-    "@zeit/ncc": "0.22.1",
-    "ws": "7.2.3",
-    "browserify": "^16.5.1"
-  }
+	"name": "kis-reader-lib",
+	"version": "1.0.0",
+	"description": "Knihovna pro integraci čtečky karet s KIS aplikacemi.",
+	"main": "distES6/lib.js",
+	"types": "distES6/lib.d.ts",
+	"files": [
+		"distES6/*.js",
+		"distES6/*.d.ts"
+	],
+	"type": "module",
+	"author": {
+		"name": "Michal Kotoun",
+		"url": "https://www.su.fit.vutbr.cz/gogs/xkotou04"
+	},
+	"repository": {
+		"url": "https://www.su.fit.vutbr.cz/gogs/Technicky/kis-reader-lib",
+		"type": "git"
+	},
+	"scripts": {
+		"build": "tsc -b && sh fix-es6-imports.sh",
+		"clean": "tsc -b --clean",
+		"ncc-onefile": "ncc build src/lib.ts -o distNode/bundle/ -C -m -s --no-source-map-register",
+		"brow-onefile": "tsc -b commonjs.tsconfig.json && browserify dist/lib.js -s KISReaderLib -o dist/bundle/bundle-lib.js",
+		"brow-test01": "tsc -b commonjs.tsconfig.json && browserify dist/tests/test1.js -o dist/tests/bundle-test1.js",
+		"brow-clean": "tsc -b commonjs.tsconfig.json --clean"
+	},
+	"devDependencies": {
+		"@zeit/ncc": "0.22.1",
+		"browserify": "^16.5.1",
+		"typescript": "^3.2.2",
+		"ws": "7.2.3"
+	}
 }
