@@ -32,6 +32,7 @@ export declare class KisReaderClient implements IKisReaderClient {
     private logWarn;
     private logError;
     getState(): ReaderState;
+    isReady(): boolean;
     connect(): void;
     disconnect(): void;
     private onConnectionProblem;

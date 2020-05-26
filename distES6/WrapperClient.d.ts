@@ -16,6 +16,7 @@ export declare class KisReaderWrapperClient implements IKisReaderClient {
     modeSingleRead(): void;
     setDisplay2x16(content: string, clearTimeoutMs: number): void;
     getState(): ReaderState;
+    isReady(): boolean;
     private fireCardEventListener;
     private fireCardOnceEventListener;
     connectedEvent: TypedEvent<IKisReaderClient>;

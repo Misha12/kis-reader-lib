@@ -1,7 +1,8 @@
+import { ReaderState } from "./IClient.js";
 import { TypedEvent } from "./TypedEvent.js";
 export class KisReaderWrapperClient {
     constructor(reader, exclusiveMode = false) {
-        this.state = 5;
+        this.state = ReaderState.ST_UNKNOWN;
         this.exclusiveOldEvent = null;
         this.exclusiveRestore = () => {
             if (this.exclusiveOldEvent)
@@ -12,7 +13,7 @@ export class KisReaderWrapperClient {
             this.cardReadEvent.emit({ client: this, cardData: arg.cardData });
         };
         this.fireCardOnceEventListener = (arg) => {
-            this.state = 2;
+            this.state = ReaderState.ST_IDLE;
             this.cardReadEvent.emit({ client: this, cardData: arg.cardData });
         };
         this.connectedEvent = new TypedEvent();
@@ -26,18 +27,18 @@ export class KisReaderWrapperClient {
         this.client.reconnectingEvent.pipe(this.reconnectingEvent);
         this.client.disconnectedEvent.pipe(this.disconnectedEvent);
         this.client.errorEvent.pipe(this.errorEvent);
-        this.client.disconnectedEvent.on(() => this.state = 0);
+        this.client.disconnectedEvent.on(() => this.state = ReaderState.ST_DISCONNECTED);
         this.client.errorEvent.on(args => this.state = args.client.getState());
-        if (this.client.state == 0) {
+        if (this.client.state == ReaderState.ST_DISCONNECTED) {
             this.client.connectedEvent.once(() => {
-                this.state = 2;
+                this.state = ReaderState.ST_IDLE;
                 this.client.modeAutoRead();
                 this.connectedEvent.emit(this);
             });
             this.client.connect();
         }
-        else if (this.client.state == 2) {
-            this.state = 2;
+        else if (this.client.state == ReaderState.ST_IDLE) {
+            this.state = ReaderState.ST_IDLE;
             this.client.modeAutoRead();
             this.connectedEvent.emit(this);
         }
@@ -51,38 +52,45 @@ export class KisReaderWrapperClient {
         this.modeIdle();
     }
     modeIdle() {
+        if (this.state == ReaderState.ST_IDLE)
+            return;
         this.exclusiveRestore();
         this.client.cardReadEvent.off(this.fireCardEventListener);
         this.client.cardReadEvent.offOnce(this.fireCardOnceEventListener);
-        this.state = 2;
+        if (!this.isReady())
+            throw new Error("The reader is in bad state, state: " + ReaderState[this.state]);
+        this.state = ReaderState.ST_IDLE;
     }
     modeAutoRead() {
-        if (this.state != 2)
-            this.modeIdle();
+        this.modeIdle();
         if (this.exclusiveMode) {
             this.exclusiveOldEvent = this.client.cardReadEvent;
             this.client.cardReadEvent = new TypedEvent();
         }
         else
             this.client.cardReadEvent.on(this.fireCardEventListener);
-        this.state = 3;
+        this.state = ReaderState.ST_AUTO_READ;
     }
     modeSingleRead() {
-        if (this.state != 2)
-            this.modeIdle();
+        this.modeIdle();
         if (this.exclusiveMode) {
             this.exclusiveOldEvent = this.client.cardReadEvent;
             this.client.cardReadEvent = new TypedEvent();
             this.client.cardReadEvent.once(this.exclusiveRestore);
         }
         this.client.cardReadEvent.once(this.fireCardOnceEventListener);
-        this.state = 4;
+        this.state = ReaderState.ST_SINGLE_READ;
     }
     setDisplay2x16(content, clearTimeoutMs) {
         this.client.setDisplay2x16(content, clearTimeoutMs);
     }
     getState() {
         return this.state;
+    }
+    isReady() {
+        return (this.state == ReaderState.ST_IDLE ||
+            this.state == ReaderState.ST_SINGLE_READ ||
+            this.state == ReaderState.ST_AUTO_READ);
     }
 }
 //# sourceMappingURL=WrapperClient.js.map

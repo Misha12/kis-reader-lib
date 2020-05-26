@@ -1,8 +1,9 @@
 import { KisReaderClient } from "./Client.js";
+import { ReaderState } from "./IClient.js";
 import { TypedEvent } from "./TypedEvent.js";
 export class KisReaderSimpleClient {
     readCard(readerUri, onData, onError) {
-        if (!(this.client && this.client.getState() == 2)) {
+        if (!(this.client && this.client.getState() == ReaderState.ST_IDLE)) {
             if (this.client)
                 this.client.disconnect();
             if (!(readerUri.startsWith("ws://") || readerUri.startsWith("wss://")))

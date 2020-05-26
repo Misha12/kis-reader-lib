@@ -2,6 +2,7 @@ import * as errorCodes from "./errorCodes.js";
 import { ProtokolA2C, ProtokolC2A, createPacket, createPingPacket, decodePongData, parsePacket, decodeRfidData, createDisplayPacket } from "./packet.js";
 import { SocketError, ReaderError } from "./errors.js";
 import { TypedEvent } from "./TypedEvent.js";
+import { ReaderState } from "./IClient.js";
 const IdleMsg = createPacket(ProtokolA2C.Idle);
 const AutoReadBeginMsg = createPacket(ProtokolA2C.AutoReadBegin);
 const SingleReadMsg = createPacket(ProtokolA2C.SingleRead);
@@ -19,8 +20,8 @@ export class KisReaderClient {
         this.uint32Max = (Math.pow(2, 32) - 1);
         this.url = url;
         this.socket = null;
-        this.state = 0;
-        this.lastKnownState = 5;
+        this.state = ReaderState.ST_DISCONNECTED;
+        this.lastKnownState = ReaderState.ST_UNKNOWN;
         this.pingEnabled = true;
         this.pingInterval = 5000;
         this.pingTimeout = 500;
@@ -38,6 +39,11 @@ export class KisReaderClient {
         this.errorEvent.emit({ client: this, error });
     }
     getState() { return this.state; }
+    isReady() {
+        return (this.state == ReaderState.ST_IDLE ||
+            this.state == ReaderState.ST_SINGLE_READ ||
+            this.state == ReaderState.ST_AUTO_READ);
+    }
     connect() {
         if (this.socket)
             throw new ReaderError("Already connected or connecting", errorCodes.READER_ALREADY_CONNECTED);
@@ -52,8 +58,8 @@ export class KisReaderClient {
         };
         this.onCloseHandler = (ev) => {
             this.logWarn(`Socket closed: code:${ev.code}, reason:${ev.reason}, wasClean:${ev.wasClean}`);
-            if (this.state !== 0 &&
-                this.state !== 1) {
+            if (this.state !== ReaderState.ST_DISCONNECTED &&
+                this.state !== ReaderState.ST_RECONNECTING) {
                 this.onConnectionProblem();
             }
         };
@@ -62,14 +68,14 @@ export class KisReaderClient {
         this.socket.onerror = (ev) => this.onErrorHandler(ev);
         this.socket.onclose = (ev) => this.onCloseHandler(ev);
         this.socket.onopen = (ev) => {
-            this.state = 2;
+            this.state = ReaderState.ST_IDLE;
             this.pingFails = 0;
             this.reconnectAttempts = 0;
             if (this.pingEnabled)
                 this.startPinging();
-            if (this.lastKnownState == 3)
+            if (this.lastKnownState == ReaderState.ST_AUTO_READ)
                 this.modeAutoRead();
-            else if (this.lastKnownState == 4)
+            else if (this.lastKnownState == ReaderState.ST_SINGLE_READ)
                 this.modeSingleRead();
             this.connectedEvent.emit(this);
         };
@@ -77,8 +83,8 @@ export class KisReaderClient {
     }
     disconnect() {
         this.stopPinging();
-        this.state = 0;
-        this.lastKnownState = 5;
+        this.state = ReaderState.ST_DISCONNECTED;
+        this.lastKnownState = ReaderState.ST_UNKNOWN;
         this.pingFails = 0;
         this.reconnectAttempts = 0;
         if (this.socket)
@@ -86,7 +92,7 @@ export class KisReaderClient {
         this.socket = null;
     }
     onConnectionProblem() {
-        if (this.state != 1)
+        if (this.state != ReaderState.ST_RECONNECTING)
             this.lastKnownState = this.state;
         this.stopPinging();
         console.log("Entered onConnectionProblem()\n", {
@@ -97,17 +103,17 @@ export class KisReaderClient {
         });
         if (this.socket && (this.socket.readyState === WebSocket.CONNECTING ||
             this.socket.readyState === WebSocket.OPEN)) {
-            this.state = 1;
+            this.state = ReaderState.ST_RECONNECTING;
             this.socket.close(4000, "connection problems detected");
         }
         this.socket = null;
         this.reconnectAttempts++;
         if (this.reconnectAttempts > this.reconnectLimit) {
-            this.state = 0;
+            this.state = ReaderState.ST_DISCONNECTED;
             this.disconnectedEvent.emit(this);
             return;
         }
-        this.state = 1;
+        this.state = ReaderState.ST_RECONNECTING;
         this.reconnectingEvent.emit(this);
         setTimeout(() => this.connect(), this.reconnectDelay);
     }
@@ -126,7 +132,7 @@ export class KisReaderClient {
     }
     checkSocketReady() {
         if (!(this.socket && this.socket.readyState == WebSocket.OPEN)) {
-            this.state = 0;
+            this.state = ReaderState.ST_DISCONNECTED;
             let error = new SocketError("WebSocket is not ready", errorCodes.READER_NOT_CONNECTED);
             this.logError(error);
             throw error;
@@ -135,17 +141,17 @@ export class KisReaderClient {
     modeIdle() {
         this.checkSocketReady();
         this.socket.send(IdleMsg);
-        this.state = 2;
+        this.state = ReaderState.ST_IDLE;
     }
     modeAutoRead() {
         this.checkSocketReady();
         this.socket.send(AutoReadBeginMsg);
-        this.state = 3;
+        this.state = ReaderState.ST_AUTO_READ;
     }
     modeSingleRead() {
         this.checkSocketReady();
         this.socket.send(SingleReadMsg);
-        this.state = 4;
+        this.state = ReaderState.ST_SINGLE_READ;
     }
     modeSingleReadAuth() {
         throw new ReaderError("Encrypted cards operations are not supported", errorCodes.NOT_SUPPORTED_OPERATION);
@@ -172,7 +178,7 @@ export class KisReaderClient {
                 break;
             }
             case ProtokolC2A.AutoId: {
-                if (this.state !== 3) {
+                if (this.state !== ReaderState.ST_AUTO_READ) {
                     this.logError(new ReaderError("Unexpected message in current state.", errorCodes.INVALID_RESPONSE));
                     return;
                 }
@@ -181,23 +187,23 @@ export class KisReaderClient {
                 break;
             }
             case ProtokolC2A.SingleId: {
-                if (this.state !== 4) {
+                if (this.state !== ReaderState.ST_SINGLE_READ) {
                     this.logError(new ReaderError("Unexpected message in current state.", errorCodes.INVALID_RESPONSE));
                     return;
                 }
-                this.state = 2;
+                this.state = ReaderState.ST_IDLE;
                 let rfid = decodeRfidData(data);
                 this.cardReadEvent.emit({ client: this, cardData: rfid.signatureBase64 });
                 break;
             }
             case ProtokolC2A.SingleIdSendKey:
             case ProtokolC2A.VerificationCode:
-                this.state = 5;
+                this.state = ReaderState.ST_UNKNOWN;
                 this.logError(new ReaderError("Encrypted cards operations are not supported", errorCodes.NOT_SUPPORTED_OPERATION));
                 this.onConnectionProblem();
                 break;
             default:
-                this.state = 5;
+                this.state = ReaderState.ST_UNKNOWN;
                 this.logError(new ReaderError("Unsupported message", errorCodes.INVALID_RESPONSE));
                 this.onConnectionProblem();
                 break;
