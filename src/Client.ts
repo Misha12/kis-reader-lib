@@ -8,7 +8,36 @@ const IdleMsg = createPacket(ProtokolA2C.Idle)
 const AutoReadBeginMsg = createPacket(ProtokolA2C.AutoReadBegin)
 const SingleReadMsg = createPacket(ProtokolA2C.SingleRead)
 
+/* 
+Hlavní třída implementují stabilní komunikaci se čtečkou:
+ - automaticky vytváří nové spojení pokud přestane čtečka odpovídat
+ - automaticky obnovuje spojení při výpadku
 
+Ve výchozím stavu:
+ - posílá kontrolní ping každých 5s, čas na odpověd je 0.5s
+ - při 5ti spožděních během jednoho spojení dojde k restartu spojení
+ - pokouší se a znovu-připojení až 3x, vždy s prodlevou 1s
+ - vše jde nastavit pomocí public fieldů po zavolání konstruktoru, viz kód o kousek níže
+
+new KisReaderClient(
+        url: adresa čtečky
+        loggingLevel: 0 = vše, 1 = warn, > 1 = pouze errors
+    )
+
+Použití (zjenodušené v test1.ts)
+ - zkontruuj objekt klienta KisReaderClient
+ - přiřaď callback cardReadEvent (pro zpracování karty) a errorEvent (do toast notifikací), 
+   a případně taky reconnecting (zkoušíme) a disconnect (odpojeno na žádost nebo selhalo znovu připojení)
+   doporučení je, vždy po přijetí errorEventu zkontrolovat "state" klienta a případně upravit stav aplikace
+ - přiřad callback connectedEvent (on nebo once) - ten je vyvolán je jako následek volání connect, nikdy ne kvůli znovu-připojení
+   doporučení je přejít do módu pro čtení a/nebo změnit stav aplikace
+ - zavolej connect(), případně lze použít connectPromise(), který přímo vytvoří promise který se resolvuje při onConnected nebo selhání připojení
+ - enjoy! haha
+ - spojení lze uzavřít pomocí disconnect()
+ - režim čtečky se připíná pomocí modeXXX (viz IKisReaderClient)
+ - na displej čtečky se vypisují věci pomocí setDisplay2x16(0-2 řádky oddělené \n, každý max 16 znaků, clear timeout v ms)
+ - stav čtečky pomocí fieldu state, metody getState() nebo pomoc metody isReady() (varcí true pro IDLE, SINGLE a AUTOREAD stavy)
+*/
 
 // if run on NodeJS use websocket/ws
 declare var require: (id: string) => any;
@@ -34,6 +63,7 @@ export class KisReaderClient implements IKisReaderClient {
     cardReadEvent = new TypedEvent<{client: IKisReaderClient, cardData: string}>();
     errorEvent = new TypedEvent<{client: IKisReaderClient, error: ReaderError | SocketError}>();
 
+    loggingLevel: number;
     pingEnabled: boolean;
     pingInterval: number; // ms, must be greater or equal to pingTimeout
     pingTimeout: number; // ms
@@ -44,8 +74,10 @@ export class KisReaderClient implements IKisReaderClient {
     reconnectLimit: number;
     lastKnownState: ReaderState;
     constructor(
-        url: string
+        url: string,
+        loggingLevel: number = 0
     ) {
+        this.loggingLevel = loggingLevel;
         this.url = url;
         this.socket = null;
         this.state = ReaderState.ST_DISCONNECTED;
@@ -65,7 +97,15 @@ export class KisReaderClient implements IKisReaderClient {
     }
 
     // TODO: vylepšit logování
+    private logDebug(...data: any[]) {
+        if (this.loggingLevel > 0)
+            return;
+        console.log(data);
+    }
+
     private logWarn(msg: any) {
+        if (this.loggingLevel > 1)
+            return;
         console.log(msg);
     }
 
@@ -145,7 +185,7 @@ export class KisReaderClient implements IKisReaderClient {
                 this.lastKnownState = this.state;
 
         this.stopPinging();
-        console.log("Entered onConnectionProblem()\n", {
+        this.logDebug("Entered onConnectionProblem()\n", {
             pingFails: this.pingFails,
             reconnectAttempts: this.reconnectAttempts,
             state: this.state,

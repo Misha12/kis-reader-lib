@@ -3,6 +3,20 @@ import { KisReaderClient } from "./Client";
 import { TypedEvent } from "./TypedEvent";
 import { ReaderError, SocketError } from "./errors";
 
+/*
+K čemu slouží:
+ - pokud je třeba jednu fyzickou čtečku používat pro dvě (nebo více) nezávislých komponent jedné aplikace, které jinak očekávají samostatné čtečky
+ - interně se při vytvoření stane odberatelem všech eventů realného klienta, a podle vlastního modu je ignoruje nebo dále propaguje do svých eventů
+Jak se používá:
+ - vytvoří se nejdřívě jedna "pravá" instance KisReaderClienta, která reprezntuje spojení s jedinou čtečkou
+ - poté lze nad ní vytvořit několik instancí wrapperu : new KisReaderWrapperClient(instance zakladniho klienta, exkluzivní mód ano/ne)
+ --- po inicializaci wrapperu je instance pravého klienta vždy přepnuta do režimu auto-read
+ --- ne-exkluzivní mód wrapperu: při použití modeAutoRead nebo modeSingleRead na wrapperu jsou eventy poslány jak přes tento wrapper tak přes všechny ostatní wrappery v non-IDLE stavech
+ --- exkluzivní mód wrapperu: při použití modeAutoRead nebo modeSingleRead na wrapperu jsou odstraněny všechny dříve nastavené callbacky v použitém realném klientovi
+     po zavolání modeIdle/načtení single-karty jsou callbacky vrácen zpět
+     není dobré použít víc než jeden wrapper v exkluzivním módu (při obnově callbacků v jiném než opačném pořádí dojde ke ztrátě informací), 
+     nebo vytvářet další (i ne exkluzivní wrappery) během použití exkluzivního modu
+*/
 
 export class KisReaderWrapperClient implements IKisReaderClient {
     private client: KisReaderClient;
@@ -39,9 +53,14 @@ export class KisReaderWrapperClient implements IKisReaderClient {
             this.client.modeAutoRead();
             this.connectedEvent.emit(this);
         }
+        else if (this.client.state == ReaderState.ST_AUTO_READ)
+        {
+            this.state = ReaderState.ST_IDLE;
+            this.connectedEvent.emit(this);
+        }
         else
         {
-            throw new Error("The passed reader is not in compatible state (ST_DISCONNECTED / ST_IDLE)");
+            throw new Error("The passed reader is not in compatible state (ST_DISCONNECTED / ST_IDLE / ST_AUTO_READ)");
         }
     }
 
@@ -79,9 +98,9 @@ export class KisReaderWrapperClient implements IKisReaderClient {
             // "move" the old delegate
             this.exclusiveOldEvent = this.client.cardReadEvent
             this.client.cardReadEvent = new TypedEvent();
+            // the delegate will be restored when modeIdle() is called
         }
-        else
-            this.client.cardReadEvent.on(this.fireCardEventListener);
+        this.client.cardReadEvent.on(this.fireCardEventListener);
         this.state = ReaderState.ST_AUTO_READ;
     }
     modeSingleRead(): void {
