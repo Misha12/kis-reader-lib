@@ -28,4 +28,6 @@ export interface IKisReaderClient {
     disconnectedEvent: TypedEvent<IKisReaderClient>; // when requested or reconnecting failed
     cardReadEvent: TypedEvent<{client: IKisReaderClient, cardData: string}>; // when a card is read
     errorEvent: TypedEvent<{client: IKisReaderClient, error: ReaderError | SocketError}>;
+    warnEvent: TypedEvent<{client: IKisReaderClient, msg: string, data: any[]}>;
+    debugEvent: TypedEvent<{client: IKisReaderClient, msg: string, data: any[]}>;
 }

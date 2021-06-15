@@ -31,6 +31,8 @@ export class KisReaderWrapperClient implements IKisReaderClient {
         this.client.reconnectingEvent.pipe(this.reconnectingEvent);
         this.client.disconnectedEvent.pipe(this.disconnectedEvent);
         this.client.errorEvent.pipe(this.errorEvent);
+        this.client.warnEvent.pipe(this.warnEvent);
+        this.client.debugEvent.pipe(this.debugEvent);
 
         // adjust state on specical occasions
         this.client.disconnectedEvent.on(() => this.state = ReaderState.ST_DISCONNECTED);
@@ -151,4 +153,6 @@ export class KisReaderWrapperClient implements IKisReaderClient {
     disconnectedEvent = new TypedEvent<IKisReaderClient>();
     cardReadEvent = new TypedEvent<{client: IKisReaderClient, cardData: string}>();
     errorEvent = new TypedEvent<{client: IKisReaderClient, error: ReaderError | SocketError}>();
+    warnEvent = new TypedEvent<{ client: IKisReaderClient; msg: string; data: any[]; }>();
+    debugEvent = new TypedEvent<{ client: IKisReaderClient; msg: string; data: any[]; }>();
 }

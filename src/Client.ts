@@ -62,6 +62,8 @@ export class KisReaderClient implements IKisReaderClient {
     disconnectedEvent = new TypedEvent<IKisReaderClient>();
     cardReadEvent = new TypedEvent<{client: IKisReaderClient, cardData: string}>();
     errorEvent = new TypedEvent<{client: IKisReaderClient, error: ReaderError | SocketError}>();
+    warnEvent = new TypedEvent<{client: IKisReaderClient, msg: string, data: any[]}>();
+    debugEvent = new TypedEvent<{client: IKisReaderClient, msg: string, data: any[]}>();
 
     loggingLevel: number;
     pingEnabled: boolean;
@@ -97,16 +99,18 @@ export class KisReaderClient implements IKisReaderClient {
     }
 
     // TODO: vylepšit logování
-    private logDebug(...data: any[]) {
+    private logDebug(msg: string, ...data: any[]) {
         if (this.loggingLevel > 0)
             return;
-        console.log(data);
+        console.log(msg, data);
+        this.debugEvent.emit({client:this, msg, data});
     }
 
-    private logWarn(msg: any) {
+    private logWarn(msg: string, ...data: any[]) {
         if (this.loggingLevel > 1)
             return;
-        console.log(msg);
+        console.log(msg, data);
+        this.warnEvent.emit({client:this, msg, data});
     }
 
     private logError(error: ReaderError | SocketError) {
